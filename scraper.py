@@ -1,32 +1,39 @@
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urljoin
 import os
+import re
 
 def get_url():
     """Get page url"""
     baseUrl = 'https://hdtodayz.to/movie?page='
     return baseUrl
-
+def clean_filename(title):
+    """Remove invalid characters from filenames"""
+    return re.sub(r'[\\/*?:"<>|]', '_', title)
 def download_image(image_url, title):
     try:
         parsed_url = urlparse(image_url)
         response = requests.get(image_url, stream=True)
-        extension = os.path.splitext(image_url)[-1] or ".jpg"
+        extension = os.path.splitext(parsed_url.path)[-1] if os.path.splitext(parsed_url.path)[-1] else ".jpg"
         filename = f"{title}{extension}"
+        save_dir = os.path.join(os.getcwd(), 'movie_posters')
+
+        filepath = os.path.join(save_dir, filename)
         if response.status_code == 200:
             #ensure the dir exists
-            save_dir = os.path.join(os.getcwd(), 'movie_posters')
+            # Clean filename
+            filename = f"{clean_filename(title)}{extension}"
             os.makedirs(save_dir, exist_ok=True)
             #save the image file
-            with open(filename, 'wb') as file:
+            with open(filepath, 'wb') as file:
                 for chunk in response.iter_content(1024):
                     file.write(chunk)
             print('succesfully downloaded', filename)
         else:
             print('an error occurred')
     except Exception as e:
-        print("An error occure downloading image")
+        print("\nAn error occure downloading image\n", e)
         return None
 def scrape_movie(baseUrl, page):
     """Scrape for movies"""
@@ -43,20 +50,25 @@ def scrape_movie(baseUrl, page):
             link = movie.find('a', class_="film-poster-ahref flw-item-tip")
             title = movie.find('h2', class_='film-name').text.strip()
 
-            image_tag = movie.find('img', class_="film-poster-img lazyloaded" )
-            image_url = image_tag['data-src'] if image_tag and 'data-src' in image_tag.attrs else image_tag.get('src', '')
+            # Extract image URL safely
+            image_tag = movie.find('img', class_="film-poster-img")
+            if image_tag:
+                image_url = image_tag.get('data-src') or image_tag.get('src', None)
+                if image_url:
+                    full_image_url = urljoin(baseUrl, image_url)
 
-            image_url = image_tag['data-src'] if image_tag and 'data-src' in image_tag.attrs else image_tag.get('src', '')
-            image_title = title.replace(' ', '_').replace('/', '_')
-
-            if image_url:
-                full_image_url = urljoin(baseUrl, image_url)
-                download_image(full_image_url, image_title)
+                    # Clean title for filename
+                    image_title = title.replace(' ', '_').replace('/', '_')
+                    print(image_title)
+                    download_image(full_image_url, image_title)
+                else:
+                    print("Error occured fetching image")
+          
             # urls = [link.get_attribute("href") for link in links if link.get_attribute("href")]
             fd_info = movie.find('div', class_='fd-infor')
             release_date = movie.find('span', class_= 'fdi-item').get_text(strip=True)
-            print(f"🎬 {title} | 📅 {release_date}")
-        # print('film-name:', title, ' release-date:', release_date) 
+            
+            print('film-name:', title, ' release-date:', release_date) 
         # print( 'link: ', image_url)
         
     except requests.RequestException as e:
