@@ -33,7 +33,7 @@ def download_image(image_url, title):
         else:
             print('an error occurred')
     except Exception as e:
-        print("\nAn error occure downloading image\n", e)
+        print("\nAn error occured downloading image\n", e)
         return None
 def scrape_movie(baseUrl, page):
     """Scrape for movies"""
@@ -76,5 +76,5 @@ def scrape_movie(baseUrl, page):
 
 if __name__ == '__main__':
     baseUrl = get_url()
-    for page in range(1,50):
+    for page in range(1,3):
         scrape_movie(baseUrl, page)
